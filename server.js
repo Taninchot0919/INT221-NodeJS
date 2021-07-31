@@ -46,35 +46,32 @@ app.get("/albums", (req, res) => {
     })
 })
 
-var maxId = ""
-let findMaxId = async function () {
-    console.log("Starting")
-    dbConnect.query("SELECT MAX(a_id) as maxId from album", async (error, result, field) => {
-        if (error) {
-            throw error
-        }
-        console.log("From findMax() : " + result[0].maxId)
-        await setValue(result[0].maxId)
-        return
+// เอาไว้ Query
+function asyncQuery(sqlQuery) {
+    return new Promise((resolve, reject) => {
+        dbConnect.query(sqlQuery, function (err, result) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(result);
+            }
+        })
     })
 }
 
-async function setValue(value) {
-    maxId = await value
+async function getMaxId() {
+    let querySQL = "SELECT MAX(a_id) as maxId from album";
+    let maxId = await asyncQuery(querySQL);
+    let maxNumber = await maxId[0].maxId.split("al")
+    maxNumber = parseInt(maxNumber[1]) + 1
+    let albumId = "al" + maxNumber
+    return albumId;
 }
 
-// async function addNewId() {
-//     await findMaxId()
-//     let maxNumber = maxId.split("al")
-//     console.log(maxNumber)
-//     // maxNumber = parseInt(maxNumber[1]) + 1
-//     return "al" + maxNumber
-// }
-
-// addNewId()
-// console.log(maxId)
 
 app.post("/add", async (req, res) => {
+    let albumId = await getMaxId();
+    console.log(albumId)
     let albumName = req.body.album_name;
     let price = req.body.price;
     let releaseDate = req.body.release_date;
@@ -83,24 +80,18 @@ app.post("/add", async (req, res) => {
     let artistId = req.body.art_id;
     let albumTypeId = req.body.at_id;
 
-    await findMaxId();
     releaseDate = moment(releaseDate).format("YYYY-MM-DD")
-    console.log("wait for await")
-    let maxNumber = maxId.split("al")
-    maxNumber = parseInt(maxNumber[1]) + 1
-    let albumId = "al" + maxNumber
-    console.log(albumId)
-    // if (!albumName && !price && !releaseDate && !description && !artistId && !albumTypeId) {
-    //     return res.status(400).send({ error: true, message: "Please fill all form" })
-    // }
 
-    // dbConnect.query('INSERT INTO album VALUES (?,?,?,?,?,?,?,?)', [albumId, albumName, price, releaseDate, description, coverImage, artistId, albumTypeId],
-    //     (error, results, field) => {
-    //         if (error) {
-    //             throw error
-    //         }
-    //         return res.send({ error: false, data: results, message: "Successfully Added!!!" })
-    //     })
+    if (!albumName && !price && !releaseDate && !description && !artistId && !albumTypeId) {
+        return res.status(400).send({ error: true, message: "Please fill all form" })
+    }
+
+    dbConnect.query('INSERT INTO album VALUES (?,?,?,?,?,?,?,?)', [albumId, albumName, price, releaseDate, description, coverImage, artistId, albumTypeId],
+        (error, results, field) => {
+            if (error) {
+                throw error
+            }
+            return res.send({ error: false, data: results, message: "Successfully Added!!!" })
+        })
 })
-
 module.exports = app
