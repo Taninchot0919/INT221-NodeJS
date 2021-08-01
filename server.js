@@ -57,15 +57,15 @@ app.post("/album", async (req, res) => {
     date.setDate(date.getDate())
     releaseDate = moment(date).format()
 
-    let maxNumber = maxAlbumId._max.a_id.split("al")
-    maxNumber = parseInt(maxNumber[1]) + 1
-    maxAlbumId = "al" + maxNumber
-
     let maxAlbumId = await prisma.album.aggregate({
         _max: {
             a_id: true
         }
     })
+
+    let maxNumber = maxAlbumId._max.a_id.split("al")
+    maxNumber = parseInt(maxNumber[1]) + 1
+    maxAlbumId = "al" + maxNumber
 
     const addAlbum = await prisma.album.create({
         data: {
