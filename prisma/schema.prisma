@@ -1,0 +1,50 @@
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model artist {
+    art_id   String  @id
+    art_name String
+    art_type String
+    album    album[]
+}
+
+model album_version {
+    av_id         String          @id
+    version       String
+    album_details album_details[]
+}
+
+model album_type {
+    at_id String  @id
+    type  String
+    album album[]
+}
+
+model album {
+    a_id          String          @id
+    album_name    String
+    price         Decimal
+    release_date  DateTime        @db.Date
+    description   String
+    cover_image   String
+    art_id        String
+    at_id         String
+    artist        artist          @relation(fields: [art_id], references: [art_id])
+    albumType     album_type      @relation(fields: [at_id], references: [at_id])
+    album_details album_details[]
+}
+
+model album_details {
+    av_id         String
+    a_id          String
+    AlbumVersions album_version @relation(fields: [av_id], references: [av_id])
+    Album         album         @relation(fields: [a_id], references: [a_id])
+
+    @@id([av_id, a_id])
+}
