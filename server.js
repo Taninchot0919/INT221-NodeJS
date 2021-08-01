@@ -3,7 +3,8 @@ let app = express();
 let bodyParser = require("body-parser")
 let mysql = require("mysql")
 let moment = require("moment")
-const { PrismaClient } = require('@prisma/client')
+const { PrismaClient } = require('@prisma/client');
+const e = require("express");
 const prisma = new PrismaClient()
 
 app.use(bodyParser.json())
@@ -41,6 +42,78 @@ app.get("/albums", async (req, res) => {
         album.release_date = moment(album.release_date).format("YYYY-MM-DD")
     });
     return res.send({ data: allAlbums })
+})
+
+app.delete("/album/:id", async (req, res) => {
+    let id = req.params.id
+    console.log(id)
+
+    await prisma.album_details.deleteMany({
+        where: {
+            a_id: id
+        }
+    }).then(async () => {
+        await prisma.album.delete({
+            where: {
+                a_id: id
+            }
+        })
+
+    })
+    return res.send({ status: "Delete Complete" })
+})
+
+app.put("/album/:id", async (req, res) => {
+    let id = req.params.id
+    let albumName = req.body.album_name
+    let price = req.body.price
+    let releaseDate = req.body.release_date
+    let description = req.body.description
+    let coverImage = req.body.cover_image
+    let artistId = req.body.art_id
+    let albumTypeId = req.body.at_id
+    let albumDetails = req.body.album_details
+
+    let date = new Date(releaseDate)
+    date.setDate(date.getDate())
+    releaseDate = moment(date).format()
+
+    prisma.album.update({
+        where: {
+            a_id: id
+        },
+        data: {
+            album_name: albumName,
+            price: price,
+            release_date: releaseDate,
+            description: description,
+            cover_image: coverImage,
+            art_id: artistId,
+            at_id: albumTypeId,
+        }
+    })
+        .then(async () => {
+            await prisma.album_details.deleteMany({
+                where: {
+                    a_id: id
+                }
+            })
+        })
+        .then(() => {
+            albumDetails.forEach(async (album) => {
+                console.log(album.av_id)
+                await prisma.album_details.createMany({
+                    data: {
+                        av_id: album.av_id,
+                        a_id: id
+                    }
+                }).then((result) => {
+                    console.log(result)
+                })
+            });
+        }).finally(() => {
+            return res.send({ message: "Update Successfully" })
+        })
 })
 
 app.post("/album", async (req, res) => {
