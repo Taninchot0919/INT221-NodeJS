@@ -1,0 +1,17 @@
+{
+    "album_name": "Taninchot Phuwaloertthiwat",
+    "price": "26.5",
+    "release_date": "2020-05-30",
+    "description": "Art Naja",
+    "cover_image": "96eaee920b895bfcdaa31dfffd7d00ca.jpg",
+    "art_id": "art01",
+    "at_id": "at03",
+    "album_details": [
+        {
+            "av_id": "av01"
+        },
+        {
+            "av_id": "av02"
+        }
+    ]
+}
