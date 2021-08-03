@@ -9,7 +9,7 @@ const prisma = new PrismaClient()
 let multer = require("multer")
 let path = require("path")
 let fs = require("fs")
-let filePath = path.join(__dirname + "/uploads/test.json")
+let jsonPath = path.join(__dirname + "/uploads/test.json")
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -18,20 +18,15 @@ app.use(express.urlencoded({ extended: true }))
 const storage = multer.diskStorage({
     destination: './uploads/',
     filename: (req, file, callback) => {
-        callback(null, file.originalname)
+        callback(null, deleteWhiteSpace(file.originalname))
     }
 })
 
-// Connect To MySQL
-/* let dbConnect = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "album_shop_test"
-})
-
-dbConnect.connect() */
-
+let deleteWhiteSpace = (text) => {
+    let str = text;
+    let trimStr = str.split(' ').join('_');
+    return trimStr
+}
 
 // Function for check file type
 function checkFileType(file, callback) {
@@ -54,9 +49,13 @@ const upload = multer({
     }
 }).any()
 
+app.listen(9000, () => {
+    console.log("Running at port : 9000")
+})
+
 // Post data with picture
 app.post("/test", (req, res) => {
-    new Promise((resolve, reject) => {
+    new Promise(async (resolve, reject) => {
         upload(req, res, (err) => {
             if (err) {
                 reject(res.send({ err: err }))
@@ -66,34 +65,40 @@ app.post("/test", (req, res) => {
         })
     }).then(() => {
         new Promise((resolve, reject) => {
-            fs.readFile(filePath, { encoding: "utf8" }, (err, data) => {
+            fs.readFile(jsonPath, { encoding: "utf8" }, (err, data) => {
                 if (!err) {
                     data = JSON.parse(data)
-                    resolve(data)
+                    let json = data
+                    resolve(json)
                 } else {
                     reject(err)
                 }
             })
-        }).then((coverJsonValue) => {
-            addAlbum(coverJsonValue).then((value) => {
-                return res.send(value)
-            }).catch((err) => {
-                // console.log(err)
-                // err = "Error"
-                return res.send({ status: "Error Something" })
+        }).then((covertJsonValue) => {
+            console.log(covertJsonValue)
+            new Promise((resolve, reject) => {
+                resolve(addAlbum(covertJsonValue))
+            }).then(() => {
+                let jsonPath = path.join(__dirname + "/uploads/test.json")
+                fs.unlink(jsonPath, () => {
+                    return res.send({ status: "Done" })
+                })
             })
         })
     })
 })
 
-
-app.listen(9000, () => {
-    console.log("Running at port : 9000")
-})
-
 //Home page route
 app.get("/", (req, res) => {
     return res.send({ error: false, message: "Welcome to rest api with Node JS", written_by: "Taninchot Phuwaloertthiwat" })
+})
+
+
+// Get picture
+app.get("/pic/:pic", (req, res) => {
+    let picFile = req.params.pic
+    let filePath = path.join(__dirname + "/uploads/" + picFile)
+    return res.sendFile(filePath)
 })
 
 // Get all albums
@@ -115,6 +120,18 @@ app.get("/albums", async (req, res) => {
 app.delete("/album/:id", async (req, res) => {
     let id = req.params.id
     console.log(id)
+
+    let albumPicture = await prisma.album.findMany({
+        where: {
+            a_id: id
+        }
+    })
+
+    /*     albumPicture = albumPicture[0].cover_image
+    
+        let filePath = path.join(__dirname + "/uploads/" + albumPicture)
+    
+        removePhoto(filePath) */
 
     await prisma.album_details.deleteMany({
         where: {
@@ -177,10 +194,10 @@ app.post("/album", async (req, res) => {
     let album = req.body
 
     addAlbum(album).then((value) => {
-        res.send(value)
+        return res.send(value)
     }).catch((err) => {
         err = "Error Something"
-        res.send({ status: err })
+        return res.send({ status: err })
     })
 })
 
@@ -192,40 +209,57 @@ function formatDate(oldDate) {
 }
 
 async function addAlbum(albumData) {
-    try {
-        let { albumName, price, releaseDate, description, coverImage, artistId, albumTypeId, albumDetails } = albumData
-        releaseDate = formatDate(releaseDate)
+    let { albumName, price, releaseDate, description, coverImage, artistId, albumTypeId, albumDetails } = albumData
+    releaseDate = formatDate(releaseDate)
 
-        let maxAlbumId = await prisma.album.aggregate({
-            _max: {
-                a_id: true
-            }
-        })
-
-        let maxNumber = maxAlbumId._max.a_id.split("al")
+    let maxAlbumId = await prisma.$queryRaw("SELECT MAX(A_ID) AS id FROM ALBUM")
+    if (maxAlbumId[0].id == null) {
+        maxAlbumId = "al01"
+    } else {
+        let maxNumber = maxAlbumId[0].id.split("al")
         maxNumber = parseInt(maxNumber[1]) + 1
-        maxAlbumId = "al" + maxNumber
-
-        if (!albumName && !price && !releaseDate && !description && !coverImage && !artistId && !albumTypeId && !albumDetails) {
-            throw new Error("Invalid Data")
+        if (maxNumber.toString().length < 2) {
+            maxNumber = "0" + maxNumber
         }
-
-        return await prisma.album.create({
-            data: {
-                a_id: maxAlbumId,
-                album_name: albumName,
-                price: price,
-                release_date: releaseDate,
-                description: description,
-                cover_image: coverImage,
-                art_id: artistId,
-                at_id: albumTypeId,
-                album_details: { create: albumDetails }
-            }
-        })
-    } catch (error) {
-        err = "Invalid Data"
-        throw new Error(error)
+        maxAlbumId = "al" + maxNumber
     }
+
+    if (!albumName && !price && !releaseDate && !description && !artistId && !albumTypeId && !albumDetails) {
+        throw new Error("Invalid Data")
+    }
+
+    coverImage = deleteWhiteSpace(coverImage)
+
+    let result = await prisma.album.create({
+        data: {
+            a_id: maxAlbumId,
+            album_name: albumName,
+            price: price,
+            release_date: releaseDate,
+            description: description,
+            cover_image: coverImage,
+            art_id: artistId,
+            at_id: albumTypeId,
+            album_details: { create: albumDetails }
+        }
+    })
+    return result
 }
+
+function removePhoto(pathOfPhoto) {
+    fs.unlink(pathOfPhoto, (err) => {
+        console.log(err)
+    })
+}
+
+app.delete("/deleteAll", async (req, res) => {
+    await prisma.$queryRaw("DELETE FROM ALBUM_DETAILS").then(async () => {
+        await prisma.$queryRaw("DELETE FROM ALBUM").then(() => {
+            return res.send({ status: "Delete Complete" })
+        })
+    })
+})
+
+
+
 module.exports = app
