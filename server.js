@@ -114,58 +114,13 @@ app.get("/", (req, res) => {
 })
 
 // Get picture
-app.get("/pic/:pic", (req, res) => {
-    let picFile = req.params.pic
-    let filePath = path.join(__dirname + "/uploads/" + picFile)
-    return res.sendFile(filePath)
-})
+app.use("/pic", require('./routes/getAlbumPicture'))
 
 // Get all albums
-app.get("/albums", async (req, res) => {
-    let allAlbums = await prisma.album.findMany({
-        include: {
-            artist: true,
-            albumType: true,
-            album_details: true
-        }
-    })
-    allAlbums.forEach(album => {
-        album.release_date = moment(album.release_date).format("YYYY-MM-DD")
-    })
-    return res.send({ data: allAlbums })
-})
+app.use("/albums", require("./routes/getAlbum"))
 
 // Delete Album from id 
-app.delete("/album/:id", async (req, res) => {
-    let id = req.params.id
-    console.log(id)
-
-    let albumPicture = await prisma.album.findMany({
-        where: {
-            a_id: id
-        }
-    })
-
-    albumPicture = albumPicture[0].cover_image
-    if (albumPicture != "default.png") {
-        let filePath = path.join(__dirname + "/uploads/" + albumPicture)
-        removePhoto(filePath)
-    }
-
-    await prisma.album_details.deleteMany({
-        where: {
-            a_id: id
-        }
-    }).then(async () => {
-        await prisma.album.delete({
-            where: {
-                a_id: id
-            }
-        })
-    }).then(() => {
-        return res.send({ status: "Delete Complete" })
-    })
-})
+app.use("/album", require("./routes/deleteAlbum"))
 
 // Update with picture
 app.put("/album/:id", (req, res) => {
@@ -243,7 +198,7 @@ async function addAlbum(albumData) {
         console.log(coverImage)
     }
 
-    let maxAlbumId = await prisma.$queryRaw("SELECT MAX(A_ID) AS id FROM ALBUM")
+    let maxAlbumId = await prisma.$queryRaw("SELECT MAX(A_ID) AS id FROM album")
     if (maxAlbumId[0].id == null) {
         maxAlbumId = "al01"
     } else {
@@ -323,8 +278,8 @@ function removePhoto(pathOfPhoto) {
 }
 
 app.delete("/deleteAll", async (req, res) => {
-    await prisma.$queryRaw("DELETE FROM ALBUM_DETAILS").then(async () => {
-        await prisma.$queryRaw("DELETE FROM ALBUM").then(() => {
+    await prisma.$queryRaw("DELETE FROM album_details").then(async () => {
+        await prisma.$queryRaw("DELETE FROM album").then(() => {
             return res.send({ status: "Delete Complete" })
         })
     })
