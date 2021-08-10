@@ -3,7 +3,7 @@ let path = require("path")
 let fs = require("fs")
 let jsonPath = path.join(__dirname, "..", "/uploads/test.json")
 let multer = require("multer")
-let { addAlbum } = require('../helpers/albumHelpers')
+let { updateAlbum } = require('../helpers/albumHelpers')
 
 //set strorage
 const storage = multer.diskStorage({
@@ -57,34 +57,30 @@ const upload = multer({
     }
 }).any()
 
-// Post album without Picture
-router.post("/", async (req, res) => {
-    let album = req.body
-    
+// Update without picture
+router.put("/:id", (req, res) => {
+    let id = req.params.id
+    let albumData = req.body
 
-    addAlbum(album).then((value) => {
-        return res.send(value)
-    }).catch((err) => {
-        err = "Error Something"
-        return res.send({ status: err })
+    updateAlbum(albumData, id).then((result) => {
+        res.send(result)
     })
 })
 
-// Post album with picture
-router.post("/withpic", (req, res) => {
+// Update with picture
+router.put("/withpic/:id", (req, res) => {
+    let id = req.params.id
     new Promise(async (resolve, reject) => {
         upload(req, res, (err) => {
             if (err) {
                 reject(res.send({ err: err }))
             }
             else {
-                console.log(req.files)
                 resolve()
             }
         })
     }).then(() => {
         new Promise((resolve, reject) => {
-            console.log("Test")
             console.log(getNameOfFile())
             fs.readFile(jsonPath, { encoding: "utf8" }, (err, data) => {
                 if (!err) {
@@ -93,15 +89,13 @@ router.post("/withpic", (req, res) => {
                     json.coverImage = getNameOfFile()
                     resolve(json)
                 } else {
-                    console.log("test2")
                     reject(err)
                 }
             })
         }).then((covertJsonValue) => {
             new Promise((resolve, reject) => {
-                resolve(addAlbum(covertJsonValue))
+                resolve(updateAlbum(covertJsonValue, id))
             }).then(() => {
-                // let jsonPath = path.join(__dirname + "/uploads/test.json")
                 fs.unlink(jsonPath, () => {
                     return res.send({ status: "Done" })
                 })
